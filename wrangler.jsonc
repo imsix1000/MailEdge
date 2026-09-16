@@ -13,7 +13,10 @@
     "run_worker_first": ["/api/*", "/d/*"]
   },
 
-  // Cloudflare Email Service 发信绑定（需要 Workers Paid）
+  // Cloudflare Email Service 发信绑定。
+  // 绑定存在只代表 Worker 能调用 send()；发件域仍须在
+  // Email Service → Email Sending 完成 onboarding 与 DNS 验证。
+  // 未完成 onboarding 时只能发给账户里已验证的 destination address。
   "send_email": [
     {
       "name": "EMAIL"

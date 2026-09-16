@@ -33,6 +33,13 @@ test("first-run setup, logout, rejected password, login, and route refresh", asy
     await expect(page.locator(".list-pane")).toBeVisible();
   });
 
+  await test.step("redirect the removed catch-all view into the inbox", async () => {
+    await page.goto("/catchall?mailboxId=all");
+
+    await expect(page).toHaveURL(/\/inbox$/);
+    await expect(page.locator(".list-pane")).toBeVisible();
+  });
+
   await test.step("destroy the session through the account menu", async () => {
     await page.locator("button.user-card").click();
     await page.getByRole("menuitem", { name: /退出登录|Sign out/ }).click();

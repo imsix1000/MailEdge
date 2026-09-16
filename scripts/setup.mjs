@@ -527,7 +527,7 @@ async function main() {
     console.log(`  ${C.cyan}npm run setup${C.reset}`);
   }
 
-  console.log(`\n${C.bold}接下来还有两步需要你在面板操作：${C.reset}\n`);
+  console.log(`\n${C.bold}接下来还有三步需要你在面板操作：${C.reset}\n`);
 
   console.log(`${C.bold}① 配置收件路由${C.reset}`);
   console.log("   Cloudflare 面板 -> Compute -> Email Service -> Email Routing -> 选择你的域名");
@@ -539,12 +539,20 @@ async function main() {
     `   ${C.dim}想收整个域名的信就改用 Catch-all address，action 同样选 Send to a Worker。${C.reset}`,
   );
 
-  console.log(`\n${C.bold}② 初始化管理员${C.reset}`);
+  console.log(`\n${C.bold}② 配置发件域名（使用 Cloudflare 渠道时）${C.reset}`);
+  console.log("   Cloudflare 面板 -> Compute -> Email Service -> Email Sending -> 选择你的域名");
+  console.log("   完成发件域 onboarding，并按提示添加 SPF / DKIM DNS 记录。");
+  console.log("   Email Routing 只能收信，不能发信；不完成这一步时，Cloudflare 渠道只能发给");
+  console.log("   账户里已验证的 destination address，看起来就像「配置保存了但发不出去」。");
+
+  console.log(`\n${C.bold}③ 初始化管理员${C.reset}`);
   console.log(`   打开 ${C.cyan}${url ?? "你的部署地址"}${C.reset}，首次访问会进入初始化页。`);
   console.log(`   ${C.yellow}这里填的收件地址必须和上一步的路由规则完全一致${C.reset}，`);
   console.log("   否则 Worker 收到信找不到对应信箱，会直接退信（550 未知收件人）。");
   console.log("\n   之后到「设置 -> 发信服务」配置渠道，先「测试发送」确认可用，再「设为默认」。");
-  console.log(`\n${C.dim}发往任意外部邮箱需要 Workers Paid；收件在免费计划即可用。${C.reset}`);
+  console.log(
+    `\n${C.dim}未完成 Email Sending onboarding 时，Cloudflare 渠道只能发给已验证的 destination address。${C.reset}`,
+  );
 
   if (!redeployed && url) {
     console.log(`\n${C.dim}提示：若之后改了 wrangler.jsonc 里的 vars，需要重新 npm run deploy。${C.reset}`);

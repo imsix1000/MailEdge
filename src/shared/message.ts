@@ -1,6 +1,6 @@
 /** 前后端共用的邮件视图模型 */
 
-/** catchall：没有精确登记、靠兜底信箱兜进来的邮件，与主收件箱分开存放 */
+/** catchall 仅保留用于兼容旧路由与存量数据；新收到的兜底邮件统一进入 inbox。 */
 export type SystemMailFolder = "inbox" | "sent" | "drafts" | "archive" | "spam" | "trash" | "catchall";
 /** 系统文件夹之外，用户创建的文件夹使用稳定 ID 保存到邮件记录中。 */
 export type MailFolder = SystemMailFolder | (string & {});

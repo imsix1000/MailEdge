@@ -66,6 +66,16 @@ const EMPTY_TEXT: Partial<Record<MailFolder, { title: TranslationKey; hint?: Tra
   spam: { title: "list.empty.spam" },
 };
 
+/** 兜底邮件进收件箱后，只有实际信封收件人与信箱地址不同时才展示别名。 */
+function inboundAlias(item: MessageSummary): string | null {
+  if (item.direction !== "inbound") return null;
+  const mailbox = item.mailboxAddress?.trim().toLowerCase();
+  const aliases = item.to
+    .map((address) => address.email.trim())
+    .filter((email) => email && (!mailbox || email.toLowerCase() !== mailbox));
+  return aliases.length ? aliases.join("、") : null;
+}
+
 function groupMessages(items: MessageSummary[]): Array<{ key: string; items: MessageSummary[] }> {
   const groups = new Map<string, MessageSummary[]>();
   for (const item of items) {
@@ -132,7 +142,6 @@ export default function MessageList({
 }: Props) {
   const { lang, t } = useI18n();
   const empty = EMPTY_TEXT[folder] ?? { title: "list.empty.default" as TranslationKey };
-  const showRecipient = folder === "catchall";
   const groups = groupMessages(items);
   return (
     <section
@@ -212,7 +221,8 @@ export default function MessageList({
                   : displayName(item.from);
               const avatarAddress = item.direction === "outbound" ? (item.to[0] ?? item.from) : item.from;
               const subject = item.subject || t("detail.noSubject");
-              const recipient = item.to.map((address) => address.email).join("、");
+              const recipient = inboundAlias(item);
+              const showRecipient = Boolean(recipient);
               const categoryKey =
                 item.category && MAIL_CATEGORIES.includes(item.category as never) ? item.category : null;
               const subjectMarkers = (categoryKey || item.hasAttachments || item.isStarred) && (

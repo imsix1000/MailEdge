@@ -26,7 +26,7 @@ export { MailboxDO } from "./do/mailbox";
 const app = new Hono<AppContext>();
 
 // 健康检查必须注册在 messages 子应用（挂在 /api 上并带鉴权中间件）之前
-app.get("/api/health", (c) => c.json({ ok: true, service: "MailEdge" }));
+app.get("/api/health", (c) => c.json({ ok: true, service: "MailEdge", apiVersion: 1 }));
 
 /** 动态品牌 SVG：同一套资源可按主题请求蓝色或黑色版本。 */
 app.get("/api/brand/logo.svg", (c) => {

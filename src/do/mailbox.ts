@@ -227,6 +227,12 @@ export class MailboxDO extends DurableObject<Env> {
     } catch {
       this.ftsEnabled = false;
     }
+
+    // v0.2.3 及更早版本会把兜底邮件放进独立的 catchall 文件夹，后来侧栏已不再
+    // 暴露该文件夹。统一迁回收件箱，避免邮件已经入库却无法在 UI 中找到。
+    // UPDATE 带条件且 folder 不属于 FTS 字段，所以可重复执行；已有 FTS update
+    // trigger 时会安全重建同一条索引记录，不支持 FTS 的实例也不受影响。
+    this.sql.exec(`UPDATE messages SET folder = 'inbox' WHERE folder = 'catchall'`);
   }
 
   async store(input: StoreMessageInput): Promise<void> {

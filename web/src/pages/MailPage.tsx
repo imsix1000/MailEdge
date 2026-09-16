@@ -36,7 +36,7 @@ interface MailRouteState {
   mailboxId?: string;
 }
 
-const SYSTEM_MAIL_ROUTES = new Set<MailFolder>(["inbox", "sent", "archive", "spam", "trash", "catchall"]);
+const SYSTEM_MAIL_ROUTES = new Set<MailFolder>(["inbox", "sent", "archive", "spam", "trash"]);
 
 function parseMailRoute(pathname: string, search: string): MailRouteState {
   const parts = pathname
@@ -52,6 +52,8 @@ function parseMailRoute(pathname: string, search: string): MailRouteState {
   if (first === "shares") return { view: "attachments", folder: "inbox", mailboxId };
   if (first === "attachments") return { view: "attachments", folder: "inbox", mailboxId };
   if (first === "contacts") return { view: "contacts", folder: "inbox", mailboxId };
+  // v0.2.3 及更早版本曾公开 /catchall；旧书签统一映射回收件箱。
+  if (first === "catchall") return { view: "mail", folder: "inbox", mailboxId };
   if (first === "folder" && parts[1]) return { view: "mail", folder: parts[1], mailboxId };
   if (SYSTEM_MAIL_ROUTES.has(first as MailFolder)) {
     return { view: "mail", folder: first as MailFolder, mailboxId };
@@ -83,6 +85,7 @@ export default function MailPage() {
   const navigate = useNavigate();
 
   const initialRoute = parseMailRoute(location.pathname, location.search);
+  const legacyCatchAllRoute = location.pathname.replace(/\/+$/, "") === "/catchall";
   // 多个信箱时默认聚合视图，单个信箱就直接用它；路由中的 mailboxId 优先。
   const [mailboxId, setMailboxId] = useState(
     initialRoute.mailboxId ?? (mailboxes.length > 1 ? "all" : mailboxes[0]?.id),
@@ -123,6 +126,12 @@ export default function MailPage() {
   const [stats, setStats] = useState<FolderStats[]>([]);
   const [customFolders, setCustomFolders] = useState<CustomFolder[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+
+  // 显示兼容映射的同时把地址规范为 /inbox，避免刷新或复制链接时继续传播旧路由。
+  useEffect(() => {
+    if (!legacyCatchAllRoute) return;
+    navigate(mailPath("mail", "inbox", initialRoute.mailboxId), { replace: true });
+  }, [initialRoute.mailboxId, legacyCatchAllRoute, navigate]);
 
   // 浏览器标签实时提示未读数量，邮件已读/新信事件会通过 stats 刷新触发更新。
   useEffect(() => {

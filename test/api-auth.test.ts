@@ -88,7 +88,7 @@ describe("公开入口与会话边界", () => {
   it("健康检查、品牌资源和首次设置状态保持公开", async () => {
     const health = await request("/api/health");
     expect(health.status).toBe(200);
-    await expect(json(health)).resolves.toMatchObject({ ok: true, service: "MailEdge" });
+    await expect(json(health)).resolves.toMatchObject({ ok: true, service: "MailEdge", apiVersion: 1 });
 
     const logo = await request("/api/brand/logo.svg");
     expect(logo.status).toBe(200);
@@ -225,6 +225,35 @@ describe("管理员权限边界", () => {
       providers: [{ name: "Resend production", type: "resend" }],
     });
     expect(JSON.stringify(userPayload)).not.toMatch(/apiKey|config|re_super_secret/);
+  });
+});
+
+describe("发件身份边界", () => {
+  it("Catch-all 只能接收未登记别名，发信前必须显式添加该地址", async () => {
+    await createMailbox(workerEnv, {
+      address: "inbox@example.com",
+      userId: user.id,
+      isCatchAll: true,
+    });
+
+    const response = await jsonRequest(
+      "/api/mail/send",
+      "POST",
+      {
+        from: "alias@example.com",
+        to: ["recipient@example.net"],
+        subject: "Catch-all must not become send-as",
+        text: "test",
+      },
+      userToken,
+    );
+
+    expect(response.status).toBe(403);
+    await expect(json(response)).resolves.toMatchObject({
+      error: expect.stringMatching(/alias@example\.com.*Catch-all 仅用于收信.*设置 → 收件地址.*显式添加/),
+    });
+    const outbound = await env.DB.prepare("SELECT id FROM outbound_messages LIMIT 1").first();
+    expect(outbound).toBeNull();
   });
 });
 

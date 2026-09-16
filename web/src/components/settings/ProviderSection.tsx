@@ -63,7 +63,7 @@ export default function ProviderSection({ type, provider, mailboxes, onChanged, 
   const [fetchingDomains, setFetchingDomains] = useState(false);
   const [cfBinding, setCfBinding] = useState<boolean | null>(null);
 
-  // Cloudflare：检测 send_email 绑定是否就绪（决定能否一键连接）
+  // Cloudflare：这里只检测 send_email 绑定是否存在；域名 onboarding 仍需在控制台完成
   useEffect(() => {
     if (type !== "cloudflare") return;
     api
@@ -205,9 +205,9 @@ export default function ProviderSection({ type, provider, mailboxes, onChanged, 
             </div>
           )}
 
-          {/* Cloudflare 一键连接：绑定就绪即可，无需任何密钥 */}
+          {/* 绑定存在只代表 Worker 能调用接口，不代表 Email Sending 域名已经就绪 */}
           {type === "cloudflare" && cfBinding !== null && (
-            <div className={`alert alert--${cfBinding ? "success" : "warning"}`}>
+            <div className={`alert alert--${cfBinding ? "info" : "warning"}`}>
               {cfBinding ? t("providers.cf.ready") : t("providers.cf.unavailable")}
             </div>
           )}

@@ -113,7 +113,7 @@ npm run deploy
 | 来信地址 | 没兜底时 | 有兜底时 |
 |---|---|---|
 | `support@example.com` | 正常收 | 正常收 |
-| `hello@example.com`（没登记） | **退信** | 收下，归入"其他地址" |
+| `hello@example.com`（没登记） | **退信** | 收下，归入兜底信箱的收件箱 |
 
 作用：**防止漏信**。初始化时 MailEdge 会把你填的第一个地址自动设为兜底，这样域名下任何来信都不丢。
 
@@ -130,7 +130,7 @@ npm run deploy
 有人来信 → Cloudflare 收下 → Email Routing 规则（Catch-all 或精确地址）→ 转给 mailedge Worker → MailEdge 判断归属 → 兜底规则兜住
 ```
 
-如果你用安装向导部署并选了"收整个域名的信"，向导已经自动帮你配好了 Catch-all 规则指向 Worker，不需要手动操作。如果选的是精确地址，也要在 Email Routing 里建对应规则指向 Worker。
+安装向导只负责部署 Worker 和基础资源，**不会替你修改 Cloudflare Email Routing**。若要接收整个域名，仍需在 Cloudflare 控制台手动启用 Catch-all address，并把 Action 设为 `Send to a Worker`、Worker 选 `mailedge`；若只接收精确地址，则为每个地址建立对应规则。
 
 ### Q11. 收不到信，怎么排查？
 
@@ -157,17 +157,27 @@ npm run deploy
 
 ## 三、发信
 
-### Q13. 发往外部邮箱为什么需要 Workers Paid？
+### Q13. 为什么 Cloudflare 渠道保存了还是发不出去？
 
-Cloudflare 的 **Email Service**（Workers 内置发信绑定）发往**外部邮箱**（Gmail、QQ、Outlook 等）需要 Workers **Paid** 计划（$5/月），免费计划只能发到同域。
+Cloudflare 把**收信**和**发信**拆成了两套服务：
 
-- **收信**：免费和付费计划都可用
-- **发信到外部**：需要 Paid（每月含 3,000 封，超出每 1,000 封 $0.35）
+| 能力 | 面板入口 | 作用 |
+|---|---|---|
+| 收信 | Email Service → **Email Routing** | MX 收信，转给 Worker |
+| 发信 | Email Service → **Email Sending** | 发件域 onboarding、SPF/DKIM、对外投递 |
 
-想先免费体验发信？两个办法：
+`wrangler.jsonc` 里的 `send_email` 绑定，以及设置页「已检测到绑定」，只代表 Worker **能调用接口**。发件域还没在 Email Sending 完成 onboarding 时，Cloudflare 只允许发给账户里**已验证的 destination address**。这时测试发送到 Gmail / QQ 会直接失败，看起来就像后台配置不能用。
 
-- 用 **SMTP 代发**（见 Q13），Workers 免费计划也能用
-- 只在同域信箱之间互发
+正确顺序：
+
+1. 部署 Worker（`npm run setup` 或 `npm run deploy`）
+2. Email Routing：把来信转到 `mailedge` Worker
+3. Email Sending：给发件域做 onboarding，并按提示加 DNS
+4. MailEdge「设置 → 发信服务」保存 Cloudflare 渠道，先测试发送再设为默认
+
+不想碰 Email Sending 也可以：改用 **SMTP 代发**（见 Q14）或 Resend / Sendflare。
+
+发到已验证 destination address 始终免费、不计入额度。完成发件域 onboarding 后即可向任意外部收件人发信。
 
 ### Q14. SMTP 代发是什么？用 Gmail 怎么配？
 
@@ -199,9 +209,11 @@ MailEdge 支持四家发信渠道：**Cloudflare Email Service / Resend / Sendfl
 
 ### Q16. 我的发件域名需要在服务商那边验证吗？
 
+用 **Cloudflare Email Service** 时，发件域必须先在 Cloudflare 面板 **Email Service → Email Sending** 完成 onboarding 与 DNS 验证。只开 Email Routing 不够。
+
 用 Resend/Sendflare 发信时，**发件域名要先在其后台验证**（它们会给你加一条 DNS 记录，你到 Cloudflare 添加后等它验证）。
 
-MailEdge 设置页可以点"拉取域名"，自动同步你已验证的域名，写信时发件人下拉据此约束——**发出去之前就拦住未验证的地址**，而不是被拒了才知道。
+MailEdge 设置页可以点"拉取域名"，自动同步 Resend/Sendflare 已验证的域名，写信时发件人下拉据此约束——**发出去之前就拦住未验证的地址**，而不是被拒了才知道。
 
 ---
 
@@ -275,14 +287,15 @@ MailEdge 部署在你的账户下，数据完全属于你，安装向导（包�
 
 ### Q24. 免费额度够用吗？
 
-| 能力 | 免费计划 | Workers Paid（$5/月） |
-|---|---|---|
-| 收信（Email Routing → Worker） | ✅ | ✅ |
-| 发信到**同域** | ✅ | ✅ |
-| 发信到**外部邮箱** | ❌ | ✅（3,000 封/月） |
-| D1 / R2 / KV 基础用量 | 有免费额度 | 额度更高 |
+| 能力 | 说明 |
+|---|---|
+| 收信（Email Routing → Worker） | 免费和付费计划都可用 |
+| 发到已验证 destination address | 始终免费，不计入发信额度 |
+| 完成 Email Sending onboarding 后对外发信 | 使用 Cloudflare 渠道的日常发信路径 |
+| SMTP / Resend / Sendflare | 不依赖 Email Sending，Workers 免费计划也能用 |
+| D1 / R2 / KV 基础用量 | 有免费额度；Paid 计划额度更高 |
 
-> 发信渠道用 **SMTP 代发**（Q13）的话，免费计划也能发外部邮箱——所以"免费额度"实际够大多数人用。
+> 「免费额度」实际够大多数人用：先把收信跑起来，发信用 SMTP 代发（Q14），或完成 Email Sending onboarding 后再切 Cloudflare 渠道。
 
 ### Q25. Global API Key 已经泄露过一次，怎么办？
 

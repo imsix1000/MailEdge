@@ -38,7 +38,9 @@ Cloudflare Email Routing can receive and forward mail, but it can't reply and ha
 ## Features
 
 - Inbox / Sent / Archive / Trash, with search, pagination, starring and unread counts
-- Aggregated view across mailboxes; mail that only matched via catch-all lands in a separate "Other addresses" folder
+- Custom folders in the sidebar, with messages moved back to the inbox if a folder is deleted
+- Aggregated view across mailboxes; unmatched catch-all mail lands in that catch-all mailbox's inbox
+- Each receiving address can have its own sidebar display name without changing the Email Routing address
 - Compose with Markdown (converted to email-safe HTML on send), CC, BCC and multiple attachments; admins can pin a specific sending provider
 - Configure all three providers from the settings page — test send, set as default, backup priority
 - Provider credentials are AES-GCM encrypted in D1; the API only ever returns masked values
@@ -95,14 +97,14 @@ Everything runs on Cloudflare — frontend and backend ship in a single deploy, 
 
 | Provider | Role | Notes |
 | --- | --- | --- |
-| Cloudflare Email Service | Default, native | Workers binding, no extra HTTP request; ≤ 5 MiB per message, ≤ 32 attachments; sending to arbitrary external addresses requires Workers Paid |
+| Cloudflare Email Service | Default, native | Workers binding, no extra HTTP request; ≤ 5 MiB per message, ≤ 32 attachments. The sending domain must be onboarded under Email Sending; until then you can only send to verified destination addresses |
 | Sendflare | Backup or primary | REST API, bearer token, optional HMAC-SHA256 signing |
 | Resend | Mature backup | REST API, requires domain verification in their dashboard |
 | SMTP | Generic relay | Raw SMTP session over Workers `connect()` on 587 STARTTLS / 465 TLS; works with external mailboxes like Gmail (app password) |
 
 To add SES / Mailgun / Postmark, drop a class into [src/mail/providers/](src/mail/providers/) and add one branch to [factory.ts](src/mail/factory.ts).
 
-> **Senders and verified domains**: when sending via Resend/Sendflare, the sending domain must be verified in their dashboard first. Click "Fetch domains" in the channel config and MailEdge syncs your verified domains from the provider's API; the composer's "From" dropdown is then constrained to them, blocking unverified senders before send rather than after a rejection.
+> **Senders and verified domains**: for the Cloudflare provider, onboard the sending domain under Cloudflare Email Service → Email Sending first. When sending via Resend/Sendflare, the sending domain must be verified in their dashboard first. Click "Fetch domains" in the channel config and MailEdge syncs your verified domains from the provider's API; the composer's "From" dropdown is then constrained to them, blocking unverified senders before send rather than after a rejection.
 >
 > **SMTP via Gmail**: host `smtp.gmail.com`, port 587, STARTTLS, username = full email, password = an *app password* (2FA required — not your login password). The settings page has a one-click Gmail preset.
 >
@@ -233,15 +235,41 @@ To receive mail for the whole domain, use **Catch-all address** instead, with th
 
 > Delivering to a Worker is only available in the new Email Routing interface. If the dashboard prompts you to switch, do so.
 
+### Wire up sending
+
+Email Routing only receives mail. To send through Cloudflare Email Service you also need to onboard the sending domain:
+
+Cloudflare dashboard → **Compute** → **Email Service** → **Email Sending** → pick the domain → add the SPF / DKIM records it shows.
+
+- **Before onboarding**: you can only send to verified destination addresses in the account (free, not counted against quota)
+- **After onboarding**: you can send from that domain to any external recipient
+- Detecting the `send_email` binding in Settings only means the Worker can call the API — **it does not mean the sending domain is ready**
+
+SMTP / Resend / Sendflare work without Email Sending.
+
 ### Initialize
 
 Open the deployed domain. On first visit you get a setup page: create the admin account and bind the first receiving address. **That address must match the routing rule from the previous step** — otherwise the Worker won't find a mailbox for incoming mail and will reject it (`550 unknown recipient`).
 
 Then head to Settings → Sending providers: fill in the credentials, hit "Test send" to confirm it works, and mark it as default.
 
-Sending to arbitrary external addresses requires Workers Paid (3,000 messages/month included, $0.35 per 1,000 after that). Receiving works on both free and paid plans.
+Until Email Sending onboarding is complete, the Cloudflare provider can only reach verified destination addresses. That often looks like "the settings saved but sending still doesn't work."
 
 ## Local development
+
+### macOS native client
+
+`app/` contains a SwiftUI client that talks to the same Worker API as the web UI. No extra backend is required.
+
+```bash
+cd app
+MAILEDGE_SERVER_URL=https://your-worker.workers.dev ./Scripts/build-app.sh
+open .build/MailEdge.app
+```
+
+You can also paste the web root URL on first launch. See [`app/README.md`](app/README.md).
+
+### Worker and web
 
 ```bash
 npm install
@@ -328,7 +356,7 @@ The `smartAttachments` field in the response tells you which files were sent inl
 
 ## Known trade-offs
 
-- The Cloudflare Workers binding takes raw MIME, so the message is assembled by [src/mail/mime.ts](src/mail/mime.ts) (CC, BCC, reply-to, custom headers, attachments and inline images are all covered). The binding delivers per envelope recipient, so `send()` is called once per address; a failure partway through can leave a partial delivery.
+- Cloudflare Email Service uses the structured `send()` API (To / Cc / Bcc / attachments in one call). Custom headers are filtered against the official allowlist so platform-owned fields like `Date` / `From` cannot reject the whole send. The sending domain must be onboarded under Email Sending first; SMTP still builds MIME in [src/mail/mime.ts](src/mail/mime.ts).
 - Sendflare's field names and signing headers follow their current API reference. If those change, only [src/mail/providers/sendflare.ts](src/mail/providers/sendflare.ts) needs editing — the abstraction above it is unaffected.
 - HTML bodies render in a `sandbox=""` iframe on the frontend, with scripts, forms and same-origin access disabled.
 - Mail is sharded across Durable Objects by address, so cross-mailbox global search would need a separate index.

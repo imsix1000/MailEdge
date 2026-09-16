@@ -29,7 +29,14 @@ send.post("/send", async (c) => {
     // 发件地址必须是本人持有的信箱，避免任意伪造 From
     const mailboxes = await listMailboxes(c.env, user.id);
     const mailbox = mailboxes.find((item) => item.address === input.from.email.toLowerCase());
-    if (!mailbox) return c.json({ error: `发件地址 ${input.from.email} 不属于当前账户` }, 403);
+    if (!mailbox) {
+      return c.json(
+        {
+          error: `发件地址 ${input.from.email} 未在当前账户中显式登记。Catch-all 仅用于收信；请先在「设置 → 收件地址」显式添加此发件地址后再发送。`,
+        },
+        403,
+      );
+    }
 
     if (!input.to.length) return c.json({ error: "收件人不能为空" }, 400);
     if (!input.html && !input.text) return c.json({ error: "邮件正文不能为空" }, 400);

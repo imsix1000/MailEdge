@@ -82,6 +82,8 @@ export default function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<MailPage />} />
         <Route path="/inbox" element={<MailPage />} />
+        {/* v0.2.3 及更早版本公开过该路径；由 MailPage 保留查询参数并规范到 /inbox。 */}
+        <Route path="/catchall" element={<MailPage />} />
         <Route path="/sent" element={<MailPage />} />
         <Route path="/archive" element={<MailPage />} />
         <Route path="/spam" element={<MailPage />} />
