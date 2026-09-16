@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      Developer ID 站外分发使用 Hardened Runtime，但不启用 App Sandbox。
+      当前客户端未实现原生 Passkey，因此不声明 Associated Domains，避免把
+      用户可切换的 MailEdge 实例错误绑定到固定域名。
+    -->
+</dict>
+</plist>

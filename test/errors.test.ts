@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { classifyHttpFailure, classifyMessage, classifyThrown, errorMessage } from "../src/mail/errors";
+import {
+  classifyHttpFailure,
+  classifyMessage,
+  classifyThrown,
+  describeCloudflareEmailError,
+  errorMessage,
+} from "../src/mail/errors";
 
 /**
  * 这组测试守的是「同一封被拒的邮件不会在多个渠道各发一次」。
@@ -88,5 +94,52 @@ describe("errorMessage", () => {
     expect(errorMessage("出错了")).toBe("出错了");
     expect(errorMessage(null)).toBe("发送失败");
     expect(errorMessage(undefined, "自定义兜底")).toBe("自定义兜底");
+  });
+});
+
+describe("Cloudflare Email Service 错误码", () => {
+  function cloudflareError(code: string, message = "Cloudflare rejected the message"): Error {
+    return Object.assign(new Error(message), { code });
+  }
+
+  it.each([
+    "E_SENDER_NOT_VERIFIED",
+    "E_SENDER_DOMAIN_NOT_AVAILABLE",
+    "E_RECIPIENT_NOT_ALLOWED",
+    // 兼容旧返回；当前官方文档使用 E_RECIPIENT_NOT_ALLOWED
+    "E_RECIPIENT_UNVERIFIED",
+  ])("%s 是永久失败，避免切换渠道重复投递", (code) => {
+    expect(classifyThrown(cloudflareError(code))).toBe("permanent");
+    const described = describeCloudflareEmailError(cloudflareError(code));
+    expect(described.failureKind).toBe("permanent");
+    expect(described.message).toContain(`[${code}]`);
+  });
+
+  it("给发件域 onboarding 与收件限制提供可操作提示", () => {
+    expect(describeCloudflareEmailError(cloudflareError("E_SENDER_DOMAIN_NOT_AVAILABLE")).message).toMatch(
+      /Email Sending.*onboarding.*DNS/,
+    );
+    expect(describeCloudflareEmailError(cloudflareError("E_RECIPIENT_NOT_ALLOWED")).message).toMatch(
+      /destination address|allowed_destination_addresses|onboarding/,
+    );
+    expect(describeCloudflareEmailError(cloudflareError("E_RECIPIENT_UNVERIFIED")).message).toMatch(
+      /验证.*Workers Paid/,
+    );
+  });
+
+  it.each(["E_RATE_LIMIT_EXCEEDED", "E_DAILY_LIMIT_EXCEEDED", "E_INTERNAL_SERVER_ERROR"])(
+    "%s 保持临时故障，可由状态机稍后重试",
+    (code) => {
+      expect(describeCloudflareEmailError(cloudflareError(code))).toMatchObject({
+        failureKind: "transient",
+      });
+    },
+  );
+
+  it("未知 E_* 代码仍保留原始代码和消息", () => {
+    expect(describeCloudflareEmailError(cloudflareError("E_FUTURE_CODE", "new API failure"))).toEqual({
+      message: "[E_FUTURE_CODE] new API failure",
+      failureKind: "transient",
+    });
   });
 });

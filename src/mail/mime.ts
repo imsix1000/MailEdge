@@ -5,8 +5,8 @@ import type { MailAddress, MailAttachment, SendMailInput } from "./types";
 
 /**
  * 生成 RFC 5322 原始邮件。
- * Cloudflare Email Service 的 Workers 绑定收的是原始 MIME，
- * 所以抄送、密送、回复地址、自定义头、附件都在这里落到报文里。
+ * SMTP 代发仍需要完整 MIME；Cloudflare Email Service 已改走结构化 send()，
+ * 不再把这段报文直接交给 send_email 绑定。
  */
 export interface BuildMimeOptions {
   /** 内部邮件 ID，会写入 Message-ID 与 X-App-Message-ID */

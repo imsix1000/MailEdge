@@ -33,8 +33,9 @@ export async function handleInboundEmail(
 
   const { mailbox } = match;
   const objectStorage = await createObjectStorage(env);
-  // 精确登记的地址进收件箱；靠兜底兜进来的单独归到「其他地址」，避免污染主收件箱
-  const folder = match.exact ? "inbox" : "catchall";
+  // 精确地址与兜底地址都进入收件箱。实际信封收件人仍保存在 to 中，
+  // 因此列表可以展示命中的别名，而不会把兜底邮件藏进不可见的旧文件夹。
+  const folder = "inbox";
 
   const raw = new Response(message.raw);
   const rawBuffer = await raw.arrayBuffer();

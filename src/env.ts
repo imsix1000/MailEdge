@@ -10,7 +10,7 @@ export interface Env {
   ASSETS: Fetcher;
   /**
    * Cloudflare Email Service 发信绑定。
-   * 本地开发或未开通 Workers Paid 时可能不存在，调用方需判空。
+   * 本地开发或未配置 send_email 绑定时可能不存在，调用方需判空。
    */
   EMAIL?: SendEmail;
 

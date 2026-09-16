@@ -258,8 +258,10 @@ messages.get("/messages", async (c) => {
   const userId = c.get("user").id;
   const requested = c.req.query("mailboxId");
   const requestedLimit = Number(c.req.query("limit") ?? 25);
+  // 旧客户端仍可能请求 catchall；存量数据已迁入 inbox，因此在 API 层也做兼容映射。
+  const requestedFolder = (c.req.query("folder") as MailFolder | undefined) ?? "inbox";
   const params = {
-    folder: (c.req.query("folder") as MailFolder | undefined) ?? "inbox",
+    folder: requestedFolder === "catchall" ? "inbox" : requestedFolder,
     category: c.req.query("category") || undefined,
     limit: Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : 25, 1), 200),
     before: c.req.query("before"),

@@ -93,18 +93,17 @@ export default function DashboardView() {
     setLoading(true);
     setError(false);
     try {
-      const [outboxResult, statsResult, providersResult, aiResult, inboxResult, catchallResult, usageResult] =
+      const [outboxResult, statsResult, providersResult, aiResult, inboxResult, usageResult] =
         await Promise.all([
           api.outbox(),
           api.stats("all"),
           api.providers(),
           api.aiConfig(),
           api.messages({ mailboxId: "all", folder: "inbox", limit: 200 }),
-          api.messages({ mailboxId: "all", folder: "catchall", limit: 200 }),
           api.usage(),
         ]);
       const categories = emptyCategories();
-      for (const message of [...inboxResult.items, ...catchallResult.items]) {
+      for (const message of inboxResult.items) {
         if (message.category && message.category in categories) {
           categories[message.category as MailCategory] += 1;
         }
@@ -144,13 +143,12 @@ export default function DashboardView() {
     const sentToday = sent.filter((item) => new Date(item.createdAt) >= today).length;
     const sent30Days = sent.filter((item) => new Date(item.createdAt) >= thirtyDaysAgo).length;
     const inbox = statFor(snapshot?.stats ?? [], "inbox");
-    const catchall = statFor(snapshot?.stats ?? [], "catchall");
     return {
       sentTotal: sent.length,
       sentToday,
       sent30Days,
-      inboundTotal: inbox.total + catchall.total,
-      unread: inbox.unread + catchall.unread,
+      inboundTotal: inbox.total,
+      unread: inbox.unread,
     };
   }, [snapshot]);
 

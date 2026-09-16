@@ -2,6 +2,18 @@
 
 All notable changes to MailEdge are documented here.
 
+## [0.2.4] - 2026-09-16
+
+### Fixed
+
+- Cloudflare Email Service now uses the structured Workers `send()` API. The legacy raw-MIME path could be rejected by Email Service header allowlists (`Date`, `From`, `Message-ID`, …), which looked like “the provider saved but sending still fails.”
+- Settings, setup, FAQ and README no longer treat a `send_email` binding as “ready to send.” Sending still requires Email Sending domain onboarding; until then only verified destination addresses are allowed.
+- Catch-all mail is stored in the inbox and shown with the actual envelope recipient, including a one-time Durable Object migration for older `catchall` rows.
+
+### Added
+
+- Native macOS client under `app/`, talking to the same Worker API as the web UI.
+
 ## [0.2.3] - 2026-08-10
 
 ### Added

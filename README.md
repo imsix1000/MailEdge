@@ -41,10 +41,10 @@ Cloudflare Email Routing 只能收信、转发，不能回复，也没有界面�
 
 - 收件箱 / 已发送 / 归档 / 回收站，搜索、分页、星标、未读计数
 - 左侧可创建自定义文件夹并移动邮件；文件夹删除时邮件会安全迁回收件箱
-- 多信箱聚合视图；未精确登记、靠兜底兜进来的信单独归入「其他地址」
+- 多信箱聚合视图；未精确登记、靠兜底兜进来的信统一归入对应兜底信箱的收件箱
 - 每个收件地址可设置独立的左侧显示名称；显示名称不会改变 Cloudflare Email Routing 使用的实际地址
 - 写信支持 Markdown（发送时转成邮件安全 HTML）、抄送、密送、多附件；管理员可指定发信渠道
-- 设置页在线配置三个渠道，支持测试发送、设为默认、备用优先级
+- 设置页在线配置发信渠道，支持测试发送、设为默认、备用优先级
 - 渠道密钥 AES-GCM 加密后存 D1，接口只返回脱敏值
 - 发信记录带完整重试链路，可手动重试；`deferred` 状态由 Cron 指数退避自动重试
 - HTML 正文在沙箱 iframe 中渲染，脚本、表单和顶层导航全部禁用；仅允许前端读取文档高度，让完整正文由详情面板统一滚动
@@ -99,14 +99,14 @@ Cloudflare Email Routing 只能收信、转发，不能回复，也没有界面�
 
 | Provider | 定位 | 说明 |
 | --- | --- | --- |
-| Cloudflare Email Service | 默认原生渠道 | Workers Binding，无额外 HTTP 请求；单封 ≤ 5 MiB、≤ 32 个附件；发往任意外部邮箱需要 Workers Paid |
+| Cloudflare Email Service | 默认原生渠道 | Workers Binding，无额外 HTTP 请求；单封 ≤ 5 MiB、≤ 32 个附件。发件域须在 Email Sending 完成 onboarding；未完成时只能发给已验证的 destination address |
 | Sendflare | 备用或主渠道 | REST API，Bearer Token，可选 HMAC-SHA256 签名 |
 | Resend | 成熟备用渠道 | REST API，需要在其后台验证域名 |
 | SMTP | 通用代发 | 用 Workers `connect()` 走 587 STARTTLS / 465 TLS，手写 SMTP 会话；可用 Gmail 等外部邮箱（应用专用密码） |
 
 新增 SES / Mailgun / Postmark 只需要在 [src/mail/providers/](src/mail/providers/) 加一个类，并在 [factory.ts](src/mail/factory.ts) 加一个分支。
 
-> **发件人与已验证域名**：用 Resend/Sendflare 发信时，发件域名必须先在其后台验证。在渠道配置里点「拉取域名」，MailEdge 会调用服务商接口同步你已验证的域名；写信时「发件人」下拉据此约束，发出前就拦住未验证的地址，而不是被拒后才知道。
+> **发件人与已验证域名**：用 Cloudflare 渠道时，发件域必须先在 Cloudflare Email Service → Email Sending 完成 onboarding 与 DNS 验证。用 Resend/Sendflare 发信时，发件域名必须先在其后台验证。在渠道配置里点「拉取域名」，MailEdge 会调用服务商接口同步你已验证的域名；写信时「发件人」下拉据此约束，发出前就拦住未验证的地址，而不是被拒后才知道。
 >
 > **SMTP 用 Gmail 代发**：主机 `smtp.gmail.com`、端口 587、加密 STARTTLS、用户名填完整邮箱、密码填「应用专用密码」（需先开两步验证，不能用登录密码）。设置页有 Gmail 一键预设。
 >
@@ -185,7 +185,7 @@ npm run setup
 
 > 首次运行时 Worker 尚未部署，机密可能写不进去，脚本会提示你再跑一次 `npm run setup` 补上。
 
-跑完后还剩两步必须在面板操作，见下面的「配置收件」和「初始化」。
+跑完后还剩三步必须在面板操作，见下面的「配置收件」「配置发件」和「初始化」。
 
 ### 手动部署
 
@@ -245,15 +245,41 @@ Cloudflare 面板 → **Compute** → **Email Service** → **Email Routing** �
 
 > 投递给 Worker 只在新版 Email Routing 界面提供。若面板提示需要切换到新界面，按提示切换即可。
 
+### 配置发件
+
+Email Routing 只能收信。要用 Cloudflare Email Service 对外发信，还需要单独完成发件域 onboarding：
+
+Cloudflare 面板 → **Compute** → **Email Service** → **Email Sending** → 选择域名 → 按提示添加 SPF / DKIM 记录。
+
+- **未完成 onboarding**：只能发给账户里已验证的 destination address（免费，不计入发信额度）
+- **完成后**：可以从该域向任意外部收件人发信
+- 设置页检测到 `send_email` 绑定，只代表 Worker 能调用接口，**不代表发件域已经就绪**
+
+也可以改用 SMTP / Resend / Sendflare，不依赖 Email Sending。
+
 ### 初始化
 
 打开部署后的域名，首次访问会进入初始化页，创建管理员并绑定第一个收件地址。**这里填写的地址必须与上一步的路由规则一致**，否则 Worker 收到邮件时找不到对应信箱，会直接退信（`550 未知收件人`）。
 
 之后到「设置 → 发信服务」配置渠道，先「测试发送」确认可用，再「设为默认」。
 
-发往任意外部邮箱需要 Workers Paid（含每月 3,000 封，超出每 1,000 封 0.35 美元）；收件在免费和付费计划都可用。
+未完成 Email Sending onboarding 时，Cloudflare 渠道只能发给已验证的 destination address，看起来会像「配置保存了但不能用」。
 
 ## 本地开发
+
+### macOS 原生客户端
+
+`app/` 中包含直接连接现有 Worker API 的 SwiftUI 客户端。它与网页版共用同一套账户、信箱和邮件数据，不需要额外部署本地后端。
+
+```bash
+cd app
+MAILEDGE_SERVER_URL=https://your-worker.workers.dev ./Scripts/build-app.sh
+open .build/MailEdge.app
+```
+
+不预置地址也可以，首次启动时粘贴网页版的根地址即可。详细说明见 [`app/README.md`](app/README.md)。
+
+### Worker 与 Web
 
 ```bash
 npm install
@@ -342,7 +368,7 @@ curl -X POST https://your-domain/api/mail/send -b cookie.txt -F 'payload={"from"
 
 ## 已知取舍
 
-- Cloudflare 的 Workers Binding 收的是原始 MIME，报文由 [src/mail/mime.ts](src/mail/mime.ts) 自行构建（抄送、密送、回复地址、自定义头、附件、内嵌图片都已覆盖）。绑定按信封收件人逐个投递，因此收件人多时会调用多次 `send()`；若中途失败可能出现部分投递。
+- Cloudflare Email Service 走结构化 `send()`（To / Cc / Bcc / 附件一次提交）。自定义头会按官方 allowlist 过滤，避免 `Date` / `From` 这类平台托管头把整次发送打回。发件域必须先在 Email Sending 完成 onboarding；SMTP 代发仍使用 [src/mail/mime.ts](src/mail/mime.ts) 构建 MIME。
 - Sendflare 的字段名与签名头以其当前 API Reference 为准，如有调整只需要改 [src/mail/providers/sendflare.ts](src/mail/providers/sendflare.ts)，不影响上层抽象。
 - HTML 正文在前端用沙箱 iframe 渲染，脚本、表单和顶层导航全部禁用；前端仅读取文档高度，避免长正文被固定视口裁断。
 - 邮件按地址分片存储在各自的 Durable Object 中，跨信箱的全局搜索需要另做索引。

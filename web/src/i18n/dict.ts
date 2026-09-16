@@ -405,7 +405,7 @@ export const DICT = {
     "providers.test.to": "收件地址",
     "providers.keepSecret": "留空表示不修改",
     "providers.desc.cloudflare":
-      "Workers 原生绑定，无额外 HTTP 请求。单封上限 5 MiB、最多 32 个附件；发往任意外部邮箱需要 Workers Paid。",
+      "Workers 原生绑定，无额外 HTTP 请求。检测到绑定仅代表 Worker 可以调用接口；仍须在 Cloudflare Email Service → Email Sending 完成发件域 onboarding 与 DNS 验证。未完成时只能发给账户里已验证的 destination address。",
     "providers.desc.sendflare": "REST API，Bearer Token 认证，可选 HMAC-SHA256 签名。",
     "providers.desc.resend": "成熟的第三方发信服务，需要在 Resend 后台完成域名验证。",
     "providers.desc.smtp":
@@ -418,10 +418,12 @@ export const DICT = {
     "providers.smtp.password": "密码",
     "providers.smtp.password.hint": "Gmail 请填应用专用密码",
     "providers.smtp.preset": "Gmail 预设",
-    "providers.cf.ready": "Workers 绑定已就绪，无需密钥（部署即授权）",
-    "providers.cf.unavailable": "未检测到 send_email 绑定，需 Workers Paid 且 wrangler.jsonc 配置 send_email",
-    "providers.cf.connect": "一键连接",
-    "providers.cf.connecting": "连接中…",
+    "providers.cf.ready":
+      "已检测到 send_email 绑定，但这不代表发件域已经就绪。请继续在 Cloudflare Email Service → Email Sending 完成发件域 onboarding 与 DNS 验证。未完成时只能发给账户里已验证的 destination address。",
+    "providers.cf.unavailable":
+      "未检测到 send_email 绑定。请先在 wrangler.jsonc 配置绑定并重新部署；随后仍须在 Email Sending 完成发件域 onboarding。",
+    "providers.cf.connect": "保存 Cloudflare 渠道",
+    "providers.cf.connecting": "保存中…",
     "providers.secret.hint": "可选，用于 HMAC 签名",
     "providers.baseUrl": "API 地址",
     "providers.domains": "已验证发信域名",
@@ -968,7 +970,7 @@ export const DICT = {
     "providers.test.to": "Recipient",
     "providers.keepSecret": "Leave blank to keep unchanged",
     "providers.desc.cloudflare":
-      "Native Workers binding, no extra HTTP request. ≤5 MiB per message, ≤32 attachments; sending to external addresses needs Workers Paid.",
+      "Native Workers binding with no extra HTTP request. Detecting the binding only means the Worker can call the API; you must still onboard and verify the sending domain under Cloudflare Email Service → Email Sending. Until then, you can only send to verified destination addresses in the account.",
     "providers.desc.sendflare": "REST API, bearer-token auth, optional HMAC-SHA256 signing.",
     "providers.desc.resend":
       "A mature third-party sending service; verify your domain in the Resend dashboard.",
@@ -982,11 +984,12 @@ export const DICT = {
     "providers.smtp.password": "Password",
     "providers.smtp.password.hint": "Use an app password for Gmail",
     "providers.smtp.preset": "Gmail preset",
-    "providers.cf.ready": "Workers binding ready — no key needed (authorized by deployment)",
+    "providers.cf.ready":
+      "send_email binding detected, but the sending domain is not necessarily ready. Complete domain onboarding and DNS verification under Cloudflare Email Service → Email Sending. Until then, you can only send to verified destination addresses in the account.",
     "providers.cf.unavailable":
-      "No send_email binding detected — needs Workers Paid and send_email in wrangler.jsonc",
-    "providers.cf.connect": "Connect in one click",
-    "providers.cf.connecting": "Connecting…",
+      "No send_email binding detected. Configure it in wrangler.jsonc and redeploy, then complete domain onboarding under Email Sending.",
+    "providers.cf.connect": "Save Cloudflare provider",
+    "providers.cf.connecting": "Saving…",
     "providers.secret.hint": "Optional, for HMAC signing",
     "providers.baseUrl": "API URL",
     "providers.domains": "Verified sending domains",

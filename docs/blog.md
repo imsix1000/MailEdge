@@ -90,7 +90,7 @@ Cloudflare Email Service、Sendflare、Resend 各是一个实现。上层只认 
 
 想加 Amazon SES？写一个类，在工厂函数里加一个分支，完事。上层一行不用改。
 
-有个细节值得一提：Cloudflare 的 Workers Binding 收的是**原始 MIME**，不是结构化的 JSON。所以项目里自己写了个 MIME 构建器，处理 multipart 嵌套、RFC 2047 头部编码、base64 折行、`cid:` 内嵌图片。这部分不难但很琐碎，写完之后抄送、密送、自定义头、附件才算真正跑通。
+有个细节值得一提：Cloudflare Email Service 现在推荐结构化 `send()`（一次带上 To / Cc / Bcc / 附件），自定义头按官方 allowlist 过滤。项目里的 MIME 构建器仍然留给 SMTP 代发——处理 multipart 嵌套、RFC 2047 头部编码、base64 折行、`cid:` 内嵌图片。这部分不难但很琐碎，SMTP 渠道的抄送、密送、自定义头、附件都靠它。
 
 ### 二、错误分类：为什么不能"失败就换个渠道重发"
 
@@ -286,7 +286,7 @@ Cloudflare 面板 → **Compute** → **Email Service** → **Email Routing** �
 
 进「设置 → 发信服务」，填一个渠道的密钥，点「测试发送」确认通了，再「设为默认」。
 
-发到任意外部邮箱需要 Workers Paid（含每月 3,000 封，超出每 1,000 封 $0.35）。收信在免费计划就能用。
+如果用 Cloudflare 渠道，还需要先在 **Email Service → Email Sending** 完成发件域 onboarding。只检测到 `send_email` 绑定并不代表可以发给 Gmail。也可以改用 SMTP / Resend / Sendflare。
 
 ---
 
